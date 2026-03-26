@@ -1,0 +1,49 @@
+name: Sync Sub-Issue from Parent
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  inherit-metadata:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Check for Parent and Sync
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # 1. Parent-Issue ID abrufen (falls vorhanden)
+          PARENT_DATA=$(gh api graphql -f query='
+            query($owner:String!, $repo:String!, $num:Int!) {
+              repository(owner:$owner, name:$repo) {
+                issue(number:$num) {
+                  parent {
+                    number
+                    assignees(first: 5) { nodes { login } }
+                    labels(first: 10) { nodes { name } }
+                  }
+                }
+              }
+            }' -f owner=${{ github.repository_owner }} \
+               -f repo=${{ github.event.repository.name }} \
+               -f num=$ISSUE_NUMBER --jq '.data.repository.issue.parent')
+
+          if [ "$PARENT_DATA" != "null" ]; then
+            echo "Parent Issue gefunden. Synchronisiere Daten..."
+            
+            # 2. Assignees extrahieren und setzen
+            ASSIGNEES=$(echo $PARENT_DATA | jq -r '.assignees.nodes[].login' | tr '\n' ',' | sed 's/,$//')
+            if [ ! -z "$ASSIGNEES" ]; then
+              gh issue edit $ISSUE_NUMBER --add-assignee "$ASSIGNEES"
+            fi
+
+            # 3. Labels extrahieren und setzen
+            LABELS=$(echo $PARENT_DATA | jq -r '.labels.nodes[].name' | tr '\n' ',' | sed 's/,$//')
+            if [ ! -z "$LABELS" ]; then
+              gh issue edit $ISSUE_NUMBER --add-label "$LABELS"
+            fi
+          else
+            echo "Kein Parent Issue verknüpft."
+          fi
