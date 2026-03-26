@@ -1,36 +1,49 @@
-# This is a basic workflow to help you get started with Actions
-
-name: CI
-
-# Controls when the workflow will run
+name: Sync Sub-Issue from Parent
 on:
-  # Triggers the workflow on push or pull request events but only for the "master" branch
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+  issues:
+    types: [opened, edited]
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  inherit-metadata:
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    permissions:
+      issues: write
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
-
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
-
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
+      - name: Check for Parent and Sync
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+          # 1. Parent-Issue ID abrufen (falls vorhanden)
+          PARENT_DATA=$(gh api graphql -f query='
+            query($owner:String!, $repo:String!, $num:Int!) {
+              repository(owner:$owner, name:$repo) {
+                issue(number:$num) {
+                  parent {
+                    number
+                    assignees(first: 5) { nodes { login } }
+                    labels(first: 10) { nodes { name } }
+                  }
+                }
+              }
+            }' -f owner=${{ github.repository_owner }} \
+               -f repo=${{ github.event.repository.name }} \
+               -f num=$ISSUE_NUMBER --jq '.data.repository.issue.parent')
+
+          if [ "$PARENT_DATA" != "null" ]; then
+            echo "Parent Issue gefunden. Synchronisiere Daten..."
+            
+            # 2. Assignees extrahieren und setzen
+            ASSIGNEES=$(echo $PARENT_DATA | jq -r '.assignees.nodes[].login' | tr '\n' ',' | sed 's/,$//')
+            if [ ! -z "$ASSIGNEES" ]; then
+              gh issue edit $ISSUE_NUMBER --add-assignee "$ASSIGNEES"
+            fi
+
+            # 3. Labels extrahieren und setzen
+            LABELS=$(echo $PARENT_DATA | jq -r '.labels.nodes[].name' | tr '\n' ',' | sed 's/,$//')
+            if [ ! -z "$LABELS" ]; then
+              gh issue edit $ISSUE_NUMBER --add-label "$LABELS"
+            fi
+          else
+            echo "Kein Parent Issue verknüpft."
+          fi
