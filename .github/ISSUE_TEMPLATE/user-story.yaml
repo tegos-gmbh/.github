@@ -1,0 +1,23 @@
+name: User Story
+description: A User Story is a short, simple description of a feature or requirement from the end users perspective, capturing who wants something, what they want, and why they need it.
+# title: "[Bug]: "
+labels: ["Needs review"]
+projects: ["tegos-gmbh/5"]
+# assignees: 
+#   - @me
+type: "User Story"
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: Beschreibung
+      description: Erklärung der Anforderung aus Sicht des Kunde
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Vorschlag
+      description: Lösungsvorschlag
+    validations:
+      required: false
