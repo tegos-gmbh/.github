@@ -1,0 +1,23 @@
+name: Bug
+description: A defect or error in the software that causes incorrect, unexpected, or unintended behavior.
+# title: "[Bug]: "
+# labels: ["Needs review"]
+projects: ["tegos-gmbh/5"]
+# assignees: 
+#   - @me
+type: "Bug"
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: Beschreibung
+      description: Beschreibung des Verhaltens
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduktion
+      description: Genaue Beschreibung, wie der Fehler reproduziert werden kann
+    validations:
+      required: true
